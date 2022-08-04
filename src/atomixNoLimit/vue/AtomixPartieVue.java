@@ -284,7 +284,7 @@ public class AtomixPartieVue extends JPanel implements ComponentListener ,MouseW
 	@Override
 	public void paint(Graphics g) {
 		
-		System.out.println("REPAINT  "+mNbrColor);		
+		//System.out.println("REPAINT  "+mNbrColor);		
 		mPainter.setGraphics(g);
 		mPainter.generateurColor(mNbrColor);
 		g.setColor(Color.BLACK);
