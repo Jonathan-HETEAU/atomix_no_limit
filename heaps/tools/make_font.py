@@ -1,15 +1,17 @@
-"""Writes res/font/bold.fnt and bold.png: a BMFont (text format) of DejaVu Sans Bold, the font
-Java draws for "Dialog" bold on Linux. Run from the heaps folder: python3 tools/make_font.py"""
+"""Writes res/font/round.fnt and round.png: a BMFont (text format) of Fredoka Bold, a rounded font
+(SIL Open Font License, tools/fonts/OFL-Fredoka.txt). Run from the heaps folder:
+python3 tools/make_font.py"""
 import os
 from PIL import Image, ImageDraw, ImageFont
 
 SIZE = 64
-TTF = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+TTF = "tools/fonts/Fredoka.ttf"
 CHARS = [c for c in range(32, 127)] + [c for c in range(160, 256)]
 PAD = 2
 WIDTH = 1024
 
 font = ImageFont.truetype(TTF, SIZE)
+font.set_variation_by_name("Bold")
 ascent, descent = font.getmetrics()
 glyphs = []
 x = y = PAD
@@ -37,11 +39,11 @@ for c, gx, gy, w, h, l, t, adv in glyphs:
 
 out = "res/font"
 os.makedirs(out, exist_ok=True)
-img.save(os.path.join(out, "bold.png"))
-with open(os.path.join(out, "bold.fnt"), "w") as f:
-	f.write(f'info face="DejaVu Sans Bold" size={SIZE} bold=1 italic=0 charset="" unicode=1 stretchH=100 smooth=1 aa=1 padding=0,0,0,0 spacing=0,0\n')
+img.save(os.path.join(out, "round.png"))
+with open(os.path.join(out, "round.fnt"), "w") as f:
+	f.write(f'info face="Fredoka Bold" size={SIZE} bold=1 italic=0 charset="" unicode=1 stretchH=100 smooth=1 aa=1 padding=0,0,0,0 spacing=0,0\n')
 	f.write(f"common lineHeight={ascent + descent} base={ascent} scaleW={WIDTH} scaleH={height} pages=1 packed=0\n")
-	f.write('page id=0 file="bold.png"\n')
+	f.write('page id=0 file="round.png"\n')
 	f.write(f"chars count={len(glyphs)}\n")
 	for c, gx, gy, w, h, l, t, adv in glyphs:
 		f.write(f"char id={c} x={gx} y={gy} width={w} height={h} xoffset={l} yoffset={t} xadvance={adv} page=0 chnl=15\n")

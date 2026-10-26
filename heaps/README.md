@@ -4,7 +4,26 @@ Portage du jeu Java (`../src`) sur [Heaps](https://heaps.io) : même génératio
 règles, mêmes trois vues (menu, plateau, molécule) et mêmes contrôles à la souris. Le jeu tourne
 dans un navigateur (WebGL) et en natif avec HashLink.
 
-<img src="screenshot.png" alt="Niveau 59" width="480"/>
+<img src="screenshot-menu.png" alt="Menu" width="300"/> <img src="screenshot.png" alt="Niveau 59" width="300"/> <img src="screenshot-molecule.png" alt="Molécule" width="300"/>
+
+## Design
+
+Une lampe à lave éclairée comme une lampe à plasma. Tout est dessiné par le code au lancement,
+il n'y a aucune image à part la police :
+
+- **Fond** (`src/view/Plasma.hx`) : un shader HXSL avec un plasma de lumière lent et des gouttes
+  lumineuses qui montent, fusionnent et redescendent ; une teinte par vue (menu rose et violet,
+  plateau sombre, molécule bleu-vert).
+- **Atomes** : des bulles translucides (corps teinté par la couleur de l'atome, reflets, halo)
+  qui ondulent doucement ; l'atome sélectionné brille plus, un atome glisse avec une animation.
+- **Sol** (`src/view/FloorArt.hx`) : une seule texture où tous les angles sont arrondis, ceux du
+  sol comme ceux des murs, avec une dalle vitrée par case, un liseré lumineux et un halo.
+- **Interface** : boutons-bulles avec icônes, boutons du menu en verre, police arrondie Fredoka
+  (SIL Open Font License, `res/font/OFL-Fredoka.txt`).
+
+Les formes (bulles, pilules, icônes) sont calculées pixel par pixel à partir de la distance aux
+formes (`src/view/Art.hx`), ce qui donne des bords lisses à toutes les tailles. Les assets de
+[Kenney](https://kenney.nl) n'étaient pas accessibles depuis l'environnement de développement.
 
 ## Contrôles
 
@@ -23,7 +42,7 @@ dans un navigateur (WebGL) et en natif avec HashLink.
 | `haxe build-js.hxml` | `bin/game.js` : servir le dossier (`npx http-server -c-1 .`) et ouvrir `index.html` |
 | `haxe build-hl.hxml` | `bin/game.hl` : `hl bin/game.hl` depuis ce dossier |
 | `haxe test.hxml` | tests des règles (`test/TestModel.hx`), sans fenêtre : génère ~300 niveaux et vérifie que chacun se résout |
-| `python3 tools/make_font.py` | régénère la police bitmap `res/font/bold.*` (DejaVu Sans Bold, la police « Dialog » de Java) |
+| `python3 tools/make_font.py` | régénère la police bitmap `res/font/round.*` depuis `tools/fonts/Fredoka.ttf` |
 
 Ajouter `-debug` au build web expose le jeu à la page (`window.game`) pour les tests en
 navigateur headless (skill `heaps-browser-test`).
@@ -44,12 +63,17 @@ HashLink, HashLink git (SDL3) avec `haxelib dev hlsdl <hashlink>/libs/sdl` (voir
 | `src/Progress.hx` | sauvegarde (`hxd.Save` : `atomix.sav` ou `localStorage`) | `AtomixFile`, `AtomixSauvegarde` |
 | `src/Main.hx` | l'application : les trois vues et le passage de l'une à l'autre | `AtomixControleur`, `AtomixVue` |
 | `src/screen/` | `MenuScreen`, `GameScreen`, `MoleculeScreen` | `AtomixMenuVue`, `AtomixPartieVue` + `AtomixPartieControleur`, `AtomixMoleculeVue` |
-| `src/view/Painter.hx` | dessin des atomes, boutons, flèches, numéro de niveau | `AtomixPainter` |
-| `src/view/Color.hx`, `Camera.hx`, `IconButton.hx` | couleurs (`brighter`/`darker` de `java.awt.Color`), caméra, boutons ronds | `Color`, `AtomixCamera`, les `mRectangle` |
+| `src/view/Painter.hx` | dessin de chaque image : bulles, boutons, textes | `AtomixPainter` |
+| `src/view/Art.hx`, `FloorArt.hx`, `Plasma.hx` | textures dessinées par le code, sol arrondi, fond animé | |
+| `src/view/Palette.hx`, `Camera.hx`, `IconButton.hx` | couleurs, caméra, boutons ronds | `AtomixCamera`, les `mRectangle` |
 
 Le modèle (`src/model/`) n'utilise pas Heaps : il est testé avec `--interp`.
 
 ## Différences avec la version Java
+
+Le nouveau design (ci-dessus) remplace le dessin de la version Java ; avec lui, le menu a un
+titre, un atome glisse au lieu de sauter, et la molécule terminée brille un instant avant le
+niveau suivant (en Java le niveau suivant arrivait aussitôt).
 
 Corrections et ajouts minimes faits pendant le portage :
 

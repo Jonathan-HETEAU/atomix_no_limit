@@ -1,107 +1,124 @@
 package view;
 
+import view.Art.Icon;
+
 /**
-	Draws the game the way the Java version did (Java: `AtomixPainter`): atoms are two circles,
-	buttons are atoms with a symbol, the floor is cyan. Everything is drawn again each frame, in
-	order, like a `paint(Graphics)`: call `begin` first. Texts are `h2d.Text` objects; what is drawn
-	after a text goes on a new layer above it, so the order of the calls is kept.
+	Draws the views each frame, in order, like a `paint(Graphics)` (Java: `AtomixPainter`): bubbles,
+	glassy buttons and pills, icons, texts. Call `begin` first. The objects are kept from a frame
+	to the next and reused in the same order.
 **/
 class Painter {
-	/** The colors of the floor and of the buttons: [hovered][0] border, [hovered][1] inside. **/
-	static final BUTTON : Array<Array<Color>> = [
-		[new Color(0, 255, 255, 100).darker(), new Color(0, 255, 255, 100)],
-		[Color.CYAN.darker(), Color.CYAN],
-	];
 	static inline var FONT_SIZE = 64;
 
 	var root : h2d.Object;
-	var layers : Array<h2d.Graphics> = [];
-	var texts : Array<h2d.Text> = [];
-	var usedLayers = 0;
-	var usedTexts = 0;
-	var g : h2d.Graphics;
 	var font : h2d.Font;
 	/** Not shown: measures texts. **/
 	var measure : h2d.Text;
-	/** The atom colors of the level: [color][0] border, [1] inside, [2] brighter. **/
-	var atomColors : Array<Array<Color>> = [];
+
+	var bitmaps = new Pool<h2d.Bitmap>(() -> new h2d.Bitmap());
+	var grids = new Pool<h2d.ScaleGrid>(() -> new h2d.ScaleGrid(Art.pill(), Art.PILL_BORDER, Art.PILL_BORDER));
+	var texts : Pool<h2d.Text>;
 
 	public function new( root : h2d.Object ) {
 		this.root = root;
-		font = hxd.Res.font.bold.toFont();
+		font = hxd.Res.font.round.toFont();
 		measure = new h2d.Text(font);
+		texts = new Pool(() -> {
+			var t = new h2d.Text(font);
+			t.smooth = true;
+			t;
+		});
 	}
 
 	/** Starts a new picture. **/
 	public function begin() {
 		root.removeChildren();
-		usedLayers = usedTexts = 0;
-		newLayer();
+		bitmaps.reset();
+		grids.reset();
+		texts.reset();
 	}
 
-	/** Prepares the colors of a level with `count` colors. **/
-	public function setColorCount( count : Int ) {
-		if( atomColors.length == count )
-			return;
-		atomColors = [for( i in 0...count ) {
-			var c = Color.ofAtom(i);
-			var c1 = c.brighter();
-			[c, c1, c1.brighter()];
-		}];
-	}
-
-	public function fillRect( color : Color, x : Float, y : Float, w : Float, h : Float ) {
-		g.beginFill(color.rgb, color.alpha);
-		g.drawRect(x, y, w, h);
-		g.endFill();
-	}
-
-	/** Like Java's `fillOval`: the ellipse in the box x, y, w, h (circles only here). **/
-	public function fillOval( color : Color, x : Float, y : Float, w : Float, h : Float ) {
-		g.beginFill(color.rgb, color.alpha);
-		g.drawEllipse(x + w / 2, y + h / 2, w / 2, h / 2);
-		g.endFill();
-	}
-
-	/** Like Java's `fillRoundRect`: `arc` is the diameter of the corners. **/
-	public function fillRoundRect( color : Color, x : Float, y : Float, w : Float, h : Float, arc : Float ) {
-		g.beginFill(color.rgb, color.alpha);
-		g.drawRoundedRect(x, y, w, h, Math.min(arc / 2, Math.min(w, h) / 2));
-		g.endFill();
+	/** A picture centered on cx, cy, `size` pixels wide, tinted. **/
+	public function sprite( tile : h2d.Tile, color : Int, alpha : Float, cx : Float, cy : Float, size : Float, ?rotation = 0., ?add = false, ?scaleX = 1., ?scaleY = 1. ) {
+		var b = bitmaps.next();
+		b.tile = tile;
+		tile.setCenterRatio();
+		b.smooth = true;
+		b.blendMode = add ? Add : Alpha;
+		Palette.tint(b, color, alpha);
+		b.setPosition(cx, cy);
+		b.rotation = rotation;
+		b.scaleX = size / tile.width * scaleX;
+		b.scaleY = size / tile.height * scaleY;
+		root.addChild(b);
 	}
 
 	/**
-		Like Java's `fillArc`: a pie in the box x, y, size, size, from `start` degrees for `extent`
-		degrees, counterclockwise from 3 o'clock (Heaps turns clockwise: mirrored here).
+		A bubble of `color`, `size` pixels wide, centered on cx, cy. `time` and `seed` make it
+		wobble a little, each bubble at its own pace; `glow` from 0 (none) to 1 (selected).
 	**/
-	public function fillArc( color : Color, x : Float, y : Float, size : Float, start : Float, extent : Float ) {
-		g.beginFill(color.rgb, color.alpha);
+	public function bubble( color : Int, cx : Float, cy : Float, size : Float, time : Float, seed : Float, glow = 0.5 ) {
+		var w = Math.sin(time * 2.1 + seed * 7.3) * 0.035;
+		sprite(Art.glow(), color, 0.25 + 0.5 * glow, cx, cy, size * (1.7 + 0.3 * glow), 0, true);
+		sprite(Art.bubbleBody(), color, 1, cx, cy, size, 0, false, 1 + w, 1 - w);
+		sprite(Art.bubbleShine(), 0xFFFFFF, 0.9, cx, cy, size, 0, false, 1 + w, 1 - w);
+	}
+
+	/** A round glassy button with an icon: x, y its top left corner. **/
+	public function iconButton( icon : Icon, hovered : Bool, x : Float, y : Float, size : Float, time : Float ) {
+		var color = hovered ? Palette.BUTTON_HOVER : Palette.BUTTON;
 		var r = size / 2;
-		g.drawPie(x + r, y + r, r, hxd.Math.degToRad(-(start + extent)), hxd.Math.degToRad(extent));
-		g.endFill();
+		bubble(color, x + r, y + r, size, time, x * 0.01 + y * 0.013, hovered ? 1 : 0.4);
+		sprite(Art.icon(icon), 0xFFFFFF, 0.95, x + r, y + r, size * 0.62);
+	}
+
+	/** A glassy rounded panel, tinted. **/
+	public function pill( color : Int, alpha : Float, x : Float, y : Float, w : Float, h : Float ) {
+		var g = grids.next();
+		// The corners must fit: below the size of the borders, the grid is scaled down.
+		var s = Math.min(1, Math.min(w, h) / (Art.PILL_BORDER * 2));
+		g.setScale(s);
+		g.width = w / s;
+		g.height = h / s;
+		g.smooth = true;
+		Palette.tint(g, color, alpha);
+		g.setPosition(x, y);
+		root.addChild(g);
+	}
+
+	/** A button of the menu: a glowing pill with its label. **/
+	public function menuButton( hovered : Bool, x : Float, y : Float, w : Float, h : Float, label : String ) {
+		var color = hovered ? Palette.BUTTON_HOVER : Palette.BUTTON;
+		var glow = h * 0.5;
+		sprite(Art.glow(), color, hovered ? 0.8 : 0.35, x + w / 2, y + h / 2, w + glow * 2, 0, true, 1, (h + glow * 2) / (w + glow * 2));
+		pill(color, hovered ? 0.95 : 0.7, x, y, w, h);
+		text(label, Palette.TEXT, x + w / 2, y + h * 0.5 + h * 0.4 * 0.36, h * 0.42, true);
+	}
+
+	/** The number of the level in a pill, centered on x, y. **/
+	public function levelNumber( number : Int, x : Float, y : Float, height : Float ) {
+		var s = Std.string(number);
+		var w = textWidth(s, height) + height * 1.2;
+		var h = height * 1.3;
+		pill(Palette.BUTTON, 0.6, x - w / 2, y - h / 2, w, h);
+		text(s, Palette.TEXT, x, y + height * 0.36, height, true);
 	}
 
 	/**
-		A text in the bold font, `size` pixels high, its baseline at `baseline`. Returns its width.
-		`centerX`: x is the middle of the text instead of its left.
+		A text, `size` pixels high (the size of the font), its baseline at `baseline`. `centerX`:
+		x is the middle of the text instead of its left. Returns its width.
 	**/
-	public function text( s : String, color : Color, x : Float, baseline : Float, size : Float, centerX = false ) : Float {
-		var t = texts[usedTexts];
-		if( t == null ) {
-			t = new h2d.Text(font);
-			t.smooth = true;
-			texts.push(t);
-		}
-		usedTexts++;
-		root.addChild(t);
+	public function text( s : String, color : Int, x : Float, baseline : Float, size : Float, centerX = false, alpha = 1. ) : Float {
+		var t = texts.next();
 		var scale = size / FONT_SIZE;
 		t.text = s;
-		t.textColor = color.rgb;
-		t.alpha = color.alpha;
+		t.textColor = color;
+		t.alpha = alpha;
+		t.dropShadow = { dx : 0, dy : 2 / scale, color : 0x200040, alpha : 0.5 };
 		t.setScale(scale);
 		var w = t.textWidth * scale;
 		t.setPosition(centerX ? x - w / 2 : x, baseline - font.baseLine * scale);
-		newLayer();
+		root.addChild(t);
 		return w;
 	}
 
@@ -110,84 +127,25 @@ class Painter {
 		measure.text = s;
 		return measure.textWidth * size / FONT_SIZE;
 	}
+}
 
-	public function drawAtom( color : Int, selected : Bool, x : Float, y : Float, size : Float ) {
-		var decal = Std.int(size * 0.05);
-		var i = selected ? 1 : 0;
-		fillOval(atomColors[color][i], x, y, size, size);
-		fillOval(atomColors[color][i + 1], x + decal, y + decal, size - 2 * decal, size - 2 * decal);
+/** Objects reused from a frame to the next. **/
+private class Pool<T> {
+	var items : Array<T> = [];
+	var used = 0;
+	var make : Void -> T;
+
+	public function new( make : Void -> T ) {
+		this.make = make;
 	}
 
-	/** An atom of any color (menu decoration, buttons). **/
-	public function drawColorAtom( color : Color, x : Float, y : Float, size : Float ) {
-		fillOval(color.darker(), x, y, size, size);
-		var decal = Std.int(size * 0.05);
-		fillOval(color, x + decal, y + decal, size - 2 * decal, size - 2 * decal);
+	public function reset() {
+		used = 0;
 	}
 
-	public function drawFloor( x : Float, y : Float, size : Float ) {
-		fillRect(BUTTON[1][0], x, y, size, size);
-	}
-
-	/** A button of the main menu. **/
-	public function drawMenuButton( hovered : Bool, x : Float, y : Float, width : Float, height : Float, label : String ) {
-		var decal = Std.int(Math.min(height, width) * 0.1);
-		var c = BUTTON[hovered ? 1 : 0];
-		fillRoundRect(c[0], x, y, width, height, 90);
-		fillRoundRect(c[1], x + decal, y + decal, width - decal * 2, height - decal * 2, 90);
-		text(label, c[0], x + width * 0.5, y + height - decal * 4, height - decal * 6, true);
-	}
-
-	/** The number of the level, centered on x, y. **/
-	public function drawLevelNumber( number : Int, x : Float, y : Float, height : Float ) {
-		var s = Std.string(number);
-		var width = textWidth(s, height);
-		x -= width / 2;
-		y -= height / 2;
-		fillRoundRect(BUTTON[1][0], x - width * 0.3, y - height * 0.3, width * 1.6, height * 1.6, 25);
-		fillRoundRect(BUTTON[1][1], x - width * 0.2, y - height * 0.2, width * 1.4, height * 1.4, 25);
-		text(s, BUTTON[1][0], x, y + height * 1.1, height);
-	}
-
-	/** The mark of a direction the selected atom can take, in the cell next to it. **/
-	public function drawArrow( color : Color, x : Float, y : Float, size : Float, dir : Int ) {
-		var start = [55, 235, 145, 325][dir];
-		fillArc(color, x, y, size, start, 70);
-		fillArc(color.darker(), x, y, size, start + 15, 40);
-	}
-
-	public function drawMenuIcon( color : Color, x : Float, y : Float, size : Float ) {
-		drawColorAtom(color, x, y, size);
-		var s = Std.int(size * 0.33);
-		fillRect(color.darker(), x + s, y + s, s, s);
-	}
-
-	public function drawMoleculeIcon( color : Color, x : Float, y : Float, size : Float ) {
-		drawColorAtom(color, x, y, size);
-		for( dx in [0.2, 0.4, 0.6] )
-			fillOval(color.darker(), x + size * dx, y + size * 0.4, size * 0.2, size * 0.2);
-	}
-
-	public function drawUndoIcon( color : Color, x : Float, y : Float, size : Float ) {
-		drawColorAtom(color, x, y, size);
-		fillArc(color.darker(), x - size * 0.25, y, size, 315, 90);
-	}
-
-	public function drawRestartIcon( color : Color, x : Float, y : Float, size : Float ) {
-		drawColorAtom(color, x, y, size);
-		fillOval(color.darker(), x + size * 0.15, y + size * 0.15, size * 0.7, size * 0.7);
-		fillOval(color, x + size * 0.25, y + size * 0.15, size * 0.5, size * 0.5);
-		fillArc(color.darker(), x, y - size * 0.25, size * 0.8, 300, 60);
-	}
-
-	function newLayer() {
-		g = layers[usedLayers];
-		if( g == null ) {
-			g = new h2d.Graphics();
-			layers.push(g);
-		}
-		usedLayers++;
-		g.clear();
-		root.addChild(g);
+	public function next() : T {
+		if( used == items.length )
+			items.push(make());
+		return items[used++];
 	}
 }

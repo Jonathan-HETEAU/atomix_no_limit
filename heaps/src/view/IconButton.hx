@@ -38,9 +38,4 @@ class IconButton {
 		}
 		return hovered;
 	}
-
-	/** Its color: green when hovered, cyan otherwise. **/
-	public function color() : Color {
-		return hovered ? Color.GREEN.brighter() : Color.CYAN;
-	}
 }

@@ -1,6 +1,7 @@
 package screen;
 
 import view.Painter;
+import view.Plasma;
 
 /**
 	A view of the game (Java: the `JPanel`s shown by the `CardLayout`): its own 2D scene, kept while
@@ -17,16 +18,24 @@ class Screen {
 	public var scene(default, null) : h2d.Scene;
 
 	var painter : Painter;
+	/** The animated background. **/
+	var background : Plasma;
+	/** Between the background and what `painter` draws: what is kept between frames. **/
+	var layer : h2d.Object;
+	/** Seconds since the view was created: animations. **/
+	var time = 0.;
 	var mouseX = 0.;
 	var mouseY = 0.;
 	var buttonsDown = new Map<Int, Bool>();
 	var pushX = 0.;
 	var pushY = 0.;
 
-	public function new() {
+	public function new( theme : view.Plasma.Theme ) {
 		scene = new h2d.Scene();
 		scene.addEventListener(onEvent);
-		painter = new Painter(scene);
+		background = new Plasma(theme, scene);
+		layer = new h2d.Object(scene);
+		painter = new Painter(new h2d.Object(scene));
 	}
 
 	public var width(get, never) : Int;
@@ -41,6 +50,8 @@ class Screen {
 
 	/** Every frame: `dt` in seconds. **/
 	public function update( dt : Float ) {
+		time += dt;
+		background.update(dt, width, height);
 		painter.begin();
 		draw();
 	}

@@ -1,96 +1,63 @@
 package screen;
 
-import view.Color;
+import view.Palette;
+import view.Plasma;
 
-/** An atom floating across the menu. **/
+/** A bubble rising through the menu, like the wax of a lava lamp. **/
 private class Deco {
-	static inline var VMAX = 5;
-	static inline var VMAX2 = 2;
+	public var x = 0.;
+	public var y = 0.;
+	public var size = 0.;
+	public var color = 0;
+	public var seed = 0.;
+	var speed = 0.;
+	var sway = 0.;
 
-	public var size = 0;
-	public var color : Color;
-	public var x = 0;
-	public var y = 0;
-	var vx = 0;
-	var vy = 0;
-
-	public function new( zone : Zone, color : Color ) {
-		this.color = color;
-		init(zone);
+	public function new( w : Float, h : Float ) {
+		init(w, h);
+		// The first ones are spread over the screen, not all at the bottom.
+		y = Math.random() * h;
 	}
 
-	public function move( zone : Zone ) {
-		x += vx;
-		y += vy;
-		if( !zone.contains(x, y) )
-			init(zone);
+	public function move( dt : Float, time : Float, w : Float, h : Float ) {
+		y -= speed * dt;
+		x += Math.sin(time * 0.8 + seed) * sway * dt;
+		if( y < -size )
+			init(w, h);
 	}
 
-	/** Starts again from a random side, towards the other side. **/
-	function init( zone : Zone ) {
-		size = Std.random(50) + 30;
-		switch Std.random(4) {
-			case 0:
-				x = zone.x;
-				y = zone.y + Std.random(zone.h);
-				vx = 1 + Std.random(VMAX);
-				vy = Std.random(VMAX2 * 2) - VMAX2;
-			case 1:
-				x = zone.x + zone.w;
-				y = zone.y + Std.random(zone.h);
-				vx = -1 - Std.random(VMAX);
-				vy = Std.random(VMAX2 * 2) - VMAX2;
-			case 2:
-				x = zone.x + Std.random(zone.w);
-				y = zone.y;
-				vx = Std.random(VMAX2 * 2) - VMAX2;
-				vy = 1 + Std.random(VMAX);
-			default:
-				x = zone.x + Std.random(zone.w);
-				y = zone.y + zone.h;
-				vx = Std.random(VMAX2 * 2) - VMAX2;
-				vy = -1 - Std.random(VMAX);
-		}
-	}
-}
-
-@:structInit
-private class Zone {
-	public var x : Int;
-	public var y : Int;
-	public var w : Int;
-	public var h : Int;
-
-	public function contains( px : Int, py : Int ) : Bool {
-		return px >= x && px < x + w && py >= y && py < y + h;
+	function init( w : Float, h : Float ) {
+		size = 20 + Math.random() * 70;
+		x = Math.random() * w;
+		y = h + size;
+		// Big bubbles are slower, as in a lava lamp.
+		speed = 25 + 60 * (1 - (size - 20) / 70) + Math.random() * 20;
+		sway = 10 + Math.random() * 25;
+		color = Palette.atom(Std.random(10));
+		seed = Math.random() * 10;
 	}
 }
 
 /**
-	The menu (Java: `AtomixMenuVue`): atoms floating on black behind three buttons. Continue goes
-	back to the view the menu was opened from, Restart starts the campaign again from level 1,
-	Quit saves and closes the game (HashLink only: a web page cannot close itself).
+	The menu (Java: `AtomixMenuVue`): bubbles rising behind the title and the buttons. Continue goes
+	back to the view the menu was opened from, Restart starts the campaign again from level 1, Quit
+	saves and closes the game (HashLink only: a web page cannot close itself).
 **/
 class MenuScreen extends Screen {
-	/** The atoms move by one step every STEP seconds (Java: a 20 ms timer). **/
-	static inline var STEP = 0.02;
-
 	var main : Main;
-	var decos : Array<Deco>;
-	var zone : Zone = { x : -70, y : -70, w : 870, h : 670 };
+	var decos : Array<Deco> = [];
 	var labels = ["Continuer", "Recommencer" #if hl , "Quitter" #end];
 	var hovered = -1;
-	var time = 0.;
 
 	public function new( main : Main ) {
-		super();
+		super(Plasma.MENU);
 		this.main = main;
-		decos = [for( _ in 0...75 ) new Deco(zone, Color.ofAtom(Std.random(10) + 1))];
 	}
 
 	/** The box of button i. **/
 	function button( i : Int ) {
-		return { x : Std.int(width * 0.5) - 200, y : Std.int(height * [0.2, 0.5, 0.8][i]), w : 400, h : 100 };
+		var w = Math.min(400, width - 40);
+		return { x : (width - w) / 2, y : height * (0.42 + 0.17 * i), w : w, h : 90. };
 	}
 
 	override function onMove() {
@@ -116,25 +83,22 @@ class MenuScreen extends Screen {
 	}
 
 	override function update( dt : Float ) {
-		zone.x = zone.y = -75;
-		zone.w = width + 75;
-		zone.h = height + 75;
-		time += dt;
-		while( time >= STEP ) {
-			time -= STEP;
-			for( d in decos )
-				d.move(zone);
-		}
+		if( decos.length == 0 && width > 0 )
+			decos = [for( _ in 0...40 ) new Deco(width, height)];
+		for( d in decos )
+			d.move(dt, time, width, height);
 		super.update(dt);
 	}
 
 	override function draw() {
-		painter.fillRect(Color.BLACK, 0, 0, width, height);
 		for( d in decos )
-			painter.drawColorAtom(d.color, d.x, d.y, d.size);
+			painter.bubble(d.color, d.x, d.y, d.size, time, d.seed, 0.45);
+		var titleSize = Math.min(96, width / 7);
+		painter.text("Atomix", 0xFFFFFF, width / 2, height * 0.2, titleSize, true);
+		painter.text("NoLimit", Palette.BUTTON_HOVER, width / 2, height * 0.2 + titleSize * 0.75, titleSize * 0.55, true);
 		for( i => label in labels ) {
 			var b = button(i);
-			painter.drawMenuButton(hovered == i, b.x, b.y, b.w, b.h, label);
+			painter.menuButton(hovered == i, b.x, b.y, b.w, b.h, label);
 		}
 	}
 }
