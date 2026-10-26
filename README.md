@@ -12,7 +12,9 @@ Jeu inspiré du jeu [Atomix](https://www.abandonware-france.org/ltf_abandon/ltf_
 Le jeu se joue uniquement avec la souris.
 
 ## Techno
-Le jeu a été programmé en java se 6 sans librairie externe. 
+Le jeu a été programmé en java se 6 sans librairie externe (dossier `src/`).
+
+Une version Haxe / [Heaps](https://heaps.io), jouable dans le navigateur et en natif avec HashLink, est dans le dossier [`heaps/`](heaps/README.md).
 
 ## Téléchargement 
 Le jar est disponible [ici](https://jonathan-heteau.itch.io/atomix-nolimit).
