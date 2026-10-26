@@ -1,6 +1,7 @@
 package screen;
 
 import model.Game;
+import model.Game.Link;
 import view.Art;
 import view.Camera;
 import view.IconButton;
@@ -19,6 +20,9 @@ class GameScreen extends Screen {
 	static inline var SLIDE_MIN = 0.08;
 	/** Seconds the built molecule shines before the next level. **/
 	static inline var WIN_DELAY = 0.9;
+	/** Seconds for a filament to form, and to break. **/
+	static inline var FILAMENT_GROW = 0.45;
+	static inline var FILAMENT_BREAK = 0.22;
 
 	var main : Main;
 	var camera = new Camera();
@@ -33,6 +37,11 @@ class GameScreen extends Screen {
 	var slide : Null<{ move : Move, t : Float, duration : Float }>;
 	/** Time left before the next level, once the molecule is built. **/
 	var winTimer = -1.;
+	/**
+		The filaments between compatible neighbour atoms (`Game.links`), by their cells: when each
+		one formed, and when it broke (-1 while it holds). A broken one shrinks, then goes.
+	**/
+	var filaments = new Map<String, { link : Link, born : Float, broke : Float }>();
 
 	var floor : h2d.Bitmap;
 	/** The level the floor was drawn for. **/
@@ -61,6 +70,7 @@ class GameScreen extends Screen {
 		selected = null;
 		slide = null;
 		winTimer = -1;
+		filaments.clear();
 	}
 
 	override function onShow() {
@@ -186,8 +196,9 @@ class GameScreen extends Screen {
 	override function draw() {
 		measure();
 		drawFloor();
-		var size = cellSize * 0.88;
+		var size = cellSize * view.Art.BUBBLE_RADIUS * 2;
 		var half = cellSize / 2;
+		drawFilaments();
 		var winGlow = winTimer >= 0 ? 0.6 + 0.4 * Math.sin(time * 12) : 0.;
 		for( x in 0...game.width )
 			for( y in 0...game.height ) {
@@ -222,6 +233,59 @@ class GameScreen extends Screen {
 		painter.iconButton(Molecule, moleculeButton.hovered, moleculeButton.x, moleculeButton.y, moleculeButton.size, time);
 		painter.iconButton(Undo, undoButton.hovered, undoButton.x, undoButton.y, undoButton.size, time);
 		painter.iconButton(Restart, restartButton.hovered, restartButton.x, restartButton.y, restartButton.size, time);
+	}
+
+	/**
+		Follows the links of the game: a new one starts to grow, a lost one breaks. The atom that is
+		sliding links only once it has stopped.
+	**/
+	function drawFilaments() {
+		var now = new Map<String, Bool>();
+		for( l in game.links() ) {
+			if( slide != null && ((l.ax == slide.move.toX && l.ay == slide.move.toY) || (l.bx == slide.move.toX && l.by == slide.move.toY)) )
+				continue;
+			var key = '${l.ax},${l.ay},${l.bx},${l.by}';
+			now.set(key, true);
+			var f = filaments.get(key);
+			if( f == null )
+				filaments.set(key, { link : l, born : time, broke : -1 });
+			else if( f.broke >= 0 ) {
+				// Formed again while breaking: grows back from where it was.
+				var left = 1 - (time - f.broke) / FILAMENT_BREAK;
+				f.born = time - Math.max(0, left) * FILAMENT_GROW;
+				f.broke = -1;
+			}
+		}
+		var half = cellSize / 2;
+		for( key => f in filaments ) {
+			if( !now.exists(key) && f.broke < 0 )
+				f.broke = time;
+			var grow;
+			if( f.broke >= 0 ) {
+				var t = (time - f.broke) / FILAMENT_BREAK;
+				if( t >= 1 ) {
+					filaments.remove(key);
+					continue;
+				}
+				grow = 1 - t * t;
+			} else
+				grow = elastic(Math.min(1, (time - f.born) / FILAMENT_GROW));
+			var l = f.link;
+			var ca = game.get(l.ax, l.ay), cb = game.get(l.bx, l.by);
+			// Once broken, one of the atoms has gone: the filament takes the color of the other.
+			if( ca < 0 ) ca = cb;
+			if( cb < 0 ) cb = ca;
+			var colorA = ca >= 0 ? Palette.atom(ca) : 0xFFFFFF, colorB = cb >= 0 ? Palette.atom(cb) : 0xFFFFFF;
+			painter.filament(colorA, colorB, boardX + l.ax * cellSize + half, boardY + l.ay * cellSize + half,
+				boardX + l.bx * cellSize + half, boardY + l.by * cellSize + half, cellSize, grow, time, l.ax * 0.7 + l.ay * 1.3);
+		}
+	}
+
+	/** 0 to 1 with a soft overshoot, like a drop settling. **/
+	static function elastic( t : Float ) : Float {
+		if( t >= 1 )
+			return 1;
+		return 1 + Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * Math.PI * 2 / 3);
 	}
 
 	/** The floor texture, made again when the level changes, placed where the camera says. **/

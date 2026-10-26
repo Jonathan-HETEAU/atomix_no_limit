@@ -64,6 +64,40 @@ class Painter {
 		sprite(Art.bubbleShine(), 0xFFFFFF, 0.9, cx, cy, size, 0, false, 1 + w, 1 - w);
 	}
 
+	/** A picture centered on cx, cy, stretched to w x h pixels, turned by `rotation`. **/
+	public function stretch( tile : h2d.Tile, color : Int, alpha : Float, cx : Float, cy : Float, w : Float, h : Float, rotation = 0., add = false ) {
+		var b = bitmaps.next();
+		b.tile = tile;
+		tile.setCenterRatio();
+		b.smooth = true;
+		b.blendMode = add ? Add : Alpha;
+		Palette.tint(b, color, alpha);
+		b.setPosition(cx, cy);
+		b.rotation = rotation;
+		b.scaleX = w / tile.width;
+		b.scaleY = h / tile.height;
+		root.addChild(b);
+	}
+
+	/**
+		A liquid filament between the bubbles centered on ax, ay and bx, by (neighbour cells of
+		`cell` pixels), from `colorA` to `colorB`. `grow` from 0 (none) to 1 (formed); it breathes
+		with `time`. Draw it before the bubbles.
+	**/
+	public function filament( colorA : Int, colorB : Int, ax : Float, ay : Float, bx : Float, by : Float, cell : Float, grow : Float, time : Float, seed : Float ) {
+		if( grow <= 0 )
+			return;
+		var cx = (ax + bx) / 2, cy = (ay + by) / 2;
+		var angle = Math.atan2(by - ay, bx - ax);
+		var w = cell * 2;
+		var h = cell * grow * (0.95 - 0.07 * Math.sin(time * 3.1 + seed));   // breathes, never wider than the bubbles
+		var mid = Palette.mix(colorA, colorB, 0.5);
+		stretch(Art.glow(), mid, 0.4 * grow, cx, cy, cell * 1.1, cell * 0.55 * grow, angle, true);
+		stretch(Art.filament(false), colorA, 1, cx, cy, w, h, angle);
+		stretch(Art.filament(true), colorB, 1, cx, cy, w, h, angle + Math.PI);
+		stretch(Art.filamentShine(), 0xFFFFFF, 1, cx, cy, w, h, angle);
+	}
+
 	/** A round glassy button with an icon: x, y its top left corner. **/
 	public function iconButton( icon : Icon, hovered : Bool, x : Float, y : Float, size : Float, time : Float ) {
 		var color = hovered ? Palette.BUTTON_HOVER : Palette.BUTTON;

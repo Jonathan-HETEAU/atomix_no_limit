@@ -80,19 +80,14 @@ class MoleculeScreen extends Screen {
 		var cell = size / camera.zoom;
 		var x0 = width / 2 - (w * size * camera.x) / camera.zoom;
 		var y0 = height / 2 - (h * size * camera.y) / camera.zoom;
-		// The bonds between neighbour atoms, under them.
-		var bond = cell * 0.22;
+		// The bonds between neighbour atoms: the same liquid filaments as on the board.
 		for( a in level.molecule )
 			for( b in level.molecule )
-				if( (b.x == a.x + 1 && b.y == a.y) || (b.y == a.y + 1 && b.x == a.x) ) {
-					// From the edge of a bubble to the edge of the other: the bubbles are see-through.
-					var gap = 0.33;
-					var ax = x0 + (a.x + 0.5 + (b.x - a.x) * gap) * cell, ay = y0 + (a.y + 0.5 + (b.y - a.y) * gap) * cell;
-					var bx = x0 + (b.x + 0.5 - (b.x - a.x) * gap) * cell, by = y0 + (b.y + 0.5 - (b.y - a.y) * gap) * cell;
-					painter.pill(0xFFFFFF, 0.5, Math.min(ax, bx) - bond / 2, Math.min(ay, by) - bond / 2, Math.abs(bx - ax) + bond, Math.abs(by - ay) + bond);
-				}
+				if( (b.x == a.x + 1 && b.y == a.y) || (b.y == a.y + 1 && b.x == a.x) )
+					painter.filament(Palette.atom(a.color), Palette.atom(b.color), x0 + (a.x + 0.5) * cell, y0 + (a.y + 0.5) * cell,
+						x0 + (b.x + 0.5) * cell, y0 + (b.y + 0.5) * cell, cell, 1, time, a.x * 0.7 + a.y * 1.3);
 		for( i => a in level.molecule )
-			painter.bubble(Palette.atom(a.color), x0 + (a.x + 0.5) * cell, y0 + (a.y + 0.5) * cell, cell * 0.8, time, i * 1.7, 0.6);
+			painter.bubble(Palette.atom(a.color), x0 + (a.x + 0.5) * cell, y0 + (a.y + 0.5) * cell, cell * view.Art.BUBBLE_RADIUS * 2, time, i * 1.7, 0.6);
 		painter.iconButton(Menu, menuButton.hovered, menuButton.x, menuButton.y, menuButton.size, time);
 		painter.iconButton(Molecule, gameButton.hovered, gameButton.x, gameButton.y, gameButton.size, time);
 	}

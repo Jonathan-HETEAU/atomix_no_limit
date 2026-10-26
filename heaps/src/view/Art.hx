@@ -18,6 +18,10 @@ enum Icon {
 class Art {
 	public static inline var BUBBLE = 128;
 	public static inline var PILL = 128;
+	public static inline var FILAMENT_W = 256;
+	public static inline var FILAMENT_H = 128;
+	/** Radius of an atom's bubble on the board, in cells. **/
+	public static inline var BUBBLE_RADIUS = 0.44;
 	/** Corner size of the pill, for `h2d.ScaleGrid`. **/
 	public static inline var PILL_BORDER = 62;
 
@@ -88,6 +92,53 @@ class Art {
 			var alpha = (0.55 + 0.4 * rim) * edge;
 			return argb(Math.min(light, 1), Math.min(light, 1), Math.min(light, 1), alpha);
 		}));
+	}
+
+	/**
+		A liquid bridge between two bubbles, white: tinted. The texture spans two cells, the
+		bubbles' centers at a quarter and three quarters of its width: the neck is the smooth union
+		of the two bubbles, without the bubbles themselves (they are drawn over it).
+		`fade`: the alpha goes from 1 on the left half to 0 on the right, to blend two colors.
+	**/
+	public static function filament( fade : Bool ) : h2d.Tile {
+		return get("filament" + fade, () -> raster(FILAMENT_W, FILAMENT_H, (x, y) -> {
+			// Cell units: x in -1...1, y in -0.5...0.5.
+			var u = (x + 0.5) / FILAMENT_W * 2 - 1, v = (y + 0.5) / FILAMENT_H - 0.5;
+			var shape = filamentDistance(u, v);
+			var px = FILAMENT_W / 2;
+			var cover = coverage(shape, px);
+			// Nothing under the bubbles: it starts at their rim, so it seems to come out of them.
+			var a = circle(u + 0.5, v, BUBBLE_RADIUS), b = circle(u - 0.5, v, BUBBLE_RADIUS);
+			var outside = smooth(-0.025, 0.005, Math.min(a, b));
+			var rim = smooth(-0.07, -0.005, shape);
+			var light = 0.7 + 0.3 * rim;
+			var alpha = cover * outside * (0.65 + 0.35 * rim);
+			if( fade )
+				alpha *= smooth(0.3, -0.3, u);
+			return argb(light, light, light, alpha);
+		}));
+	}
+
+	/** The light on the top of the bridge: not tinted. Same layout as `filament`. **/
+	public static function filamentShine() : h2d.Tile {
+		return get("filamentShine", () -> raster(FILAMENT_W, FILAMENT_H, (x, y) -> {
+			var u = (x + 0.5) / FILAMENT_W * 2 - 1, v = (y + 0.5) / FILAMENT_H - 0.5;
+			var shape = filamentDistance(u, v);
+			var a = circle(u + 0.5, v, BUBBLE_RADIUS), b = circle(u - 0.5, v, BUBBLE_RADIUS);
+			var outside = smooth(0.0, 0.05, Math.min(a, b));
+			// A thin streak just inside the top edge.
+			var band = smooth(-0.06, -0.035, shape) * (1 - smooth(-0.025, -0.01, shape));
+			var top = v < 0 ? 1. : 0.;
+			return argb(1, 1, 1, band * top * outside * 0.8);
+		}));
+	}
+
+	static function filamentDistance( u : Float, v : Float ) : Float {
+		var a = circle(u + 0.5, v, BUBBLE_RADIUS), b = circle(u - 0.5, v, BUBBLE_RADIUS);
+		// Polynomial smooth minimum: the two circles melt into each other.
+		var k = 0.5;
+		var h = Math.max(k - Math.abs(a - b), 0) / k;
+		return Math.min(a, b) - h * h * k / 4;
 	}
 
 	/** An icon, white with smooth edges. **/

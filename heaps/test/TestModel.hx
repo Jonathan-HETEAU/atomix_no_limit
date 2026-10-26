@@ -16,6 +16,7 @@ class TestModel {
 		difficulty();
 		generatedLevels();
 		movesAndUndo();
+		links();
 		saveRoundTrip();
 		campaign();
 		Sys.println(failures == 0 ? "All tests passed" : '$failures failure(s)');
@@ -83,6 +84,26 @@ class TestModel {
 		game.move(1, 1, Game.direction(1, 0));
 		game.restart();
 		check(game.moves.length == 0 && game.isAtom(1, 1) && game.isAtom(3, 1), "restart");
+	}
+
+	static function links() {
+		// Molecule: 0 1 side by side, and 1 above 2.
+		var level = new Level(1, 1, 6, 6);
+		for( x in 1...5 )
+			for( y in 1...5 )
+				level.floor[x][y] = true;
+		level.molecule = [{ x : 0, y : 0, color : 0 }, { x : 1, y : 0, color : 1 }, { x : 1, y : 1, color : 2 }];
+		level.atoms = [
+			{ x : 1, y : 1, color : 0 }, { x : 2, y : 1, color : 1 },   // 0 1: linked
+			{ x : 1, y : 3, color : 1 }, { x : 2, y : 3, color : 0 },   // 1 0: wrong way round
+			{ x : 4, y : 2, color : 1 }, { x : 4, y : 3, color : 2 },   // 1 above 2: linked
+		];
+		var game = new Game(level);
+		var found = [for( l in game.links() ) '${l.ax},${l.ay}-${l.bx},${l.by}'];
+		found.sort(Reflect.compare);
+		check(found.join(" ") == "1,1-2,1 4,2-4,3", 'links $found');
+		game.move(4, 3, Game.direction(-1, 0));
+		check(game.links().length == 1, "link broken by a move");
 	}
 
 	static function saveRoundTrip() {

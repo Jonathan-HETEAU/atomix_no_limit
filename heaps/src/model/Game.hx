@@ -3,6 +3,9 @@ package model;
 /** A move: the atom at `from` slid in `dir` and stopped at `to`. **/
 typedef Move = { fromX : Int, fromY : Int, dir : Int, toX : Int, toY : Int }
 
+/** Two neighbour atoms, b to the right of a or below it. **/
+typedef Link = { ax : Int, ay : Int, bx : Int, by : Int }
+
 /**
 	A level being played (Java: `AtomixPartie`): where the atoms are, the moves made (to undo them)
 	and whether the molecule is built. An atom slides in a direction until it meets a wall or
@@ -22,11 +25,20 @@ class Game {
 
 	/** `cells[x][y]`: `WALL`, `FLOOR` or the color of the atom there. **/
 	var cells : Array<Array<Int>>;
+	/** The pairs of neighbour atoms of the molecule: `linkKey(color, color, horizontal)`. **/
+	var linkKinds = new Map<String, Bool>();
 
 	public function new( level : Level ) {
 		this.level = level;
 		cells = [for( x in 0...level.width ) [for( y in 0...level.height ) level.floor[x][y] ? FLOOR : WALL]];
 		placeAtoms();
+		for( a in level.molecule )
+			for( b in level.molecule ) {
+				if( b.x == a.x + 1 && b.y == a.y )
+					linkKinds.set(linkKey(a.color, b.color, true), true);
+				if( b.x == a.x && b.y == a.y + 1 )
+					linkKinds.set(linkKey(a.color, b.color, false), true);
+			}
 	}
 
 	public var width(get, never) : Int;
@@ -124,6 +136,29 @@ class Game {
 				return true;
 		}
 		return false;
+	}
+
+	/**
+		The pairs of neighbour atoms placed as two atoms of the molecule are: same colors, side by
+		side the same way. They may not be the atoms that end up together.
+	**/
+	public function links() : Array<Link> {
+		var out = [];
+		for( x in 0...level.width )
+			for( y in 0...level.height ) {
+				var c = cells[x][y];
+				if( c < 0 )
+					continue;
+				if( get(x + 1, y) >= 0 && linkKinds.exists(linkKey(c, cells[x + 1][y], true)) )
+					out.push({ ax : x, ay : y, bx : x + 1, by : y });
+				if( get(x, y + 1) >= 0 && linkKinds.exists(linkKey(c, cells[x][y + 1], false)) )
+					out.push({ ax : x, ay : y, bx : x, by : y + 1 });
+			}
+		return out;
+	}
+
+	static function linkKey( a : Int, b : Int, horizontal : Bool ) : String {
+		return '$a:$b:' + (horizontal ? "h" : "v");
 	}
 
 	function placeAtoms() {

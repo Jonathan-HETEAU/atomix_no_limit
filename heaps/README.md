@@ -4,7 +4,7 @@ Portage du jeu Java (`../src`) sur [Heaps](https://heaps.io) : même génératio
 règles, mêmes trois vues (menu, plateau, molécule) et mêmes contrôles à la souris. Le jeu tourne
 dans un navigateur (WebGL) et en natif avec HashLink.
 
-<img src="screenshot-menu.png" alt="Menu" width="300"/> <img src="screenshot.png" alt="Niveau 59" width="300"/> <img src="screenshot-molecule.png" alt="Molécule" width="300"/>
+<img src="screenshot-menu.png" alt="Menu" width="300"/> <img src="screenshot.png" alt="Niveau 59" width="300"/> <img src="screenshot-molecule.png" alt="Molécule" width="300"/> <img src="screenshot-links.png" alt="Filaments entre atomes compatibles" width="300"/>
 
 ## Design
 
@@ -16,6 +16,11 @@ il n'y a aucune image à part la police :
   plateau sombre, molécule bleu-vert).
 - **Atomes** : des bulles translucides (corps teinté par la couleur de l'atome, reflets, halo)
   qui ondulent doucement ; l'atome sélectionné brille plus, un atome glisse avec une animation.
+- **Filaments liquides** : deux atomes voisins placés comme deux atomes de la molécule (mêmes
+  couleurs, côte à côte dans le même sens) sont reliés par un pont liquide, même si ce ne sont
+  pas eux qui formeront la molécule au final (`Game.links`). Le pont se forme avec un léger
+  rebond quand l'atome s'arrête, respire, et se rompt quand ils se séparent. La vue molécule
+  relie ses atomes de la même façon.
 - **Sol** (`src/view/FloorArt.hx`) : une seule texture où tous les angles sont arrondis, ceux du
   sol comme ceux des murs, avec une dalle vitrée par case, un liseré lumineux et un halo.
 - **Interface** : boutons-bulles avec icônes, boutons du menu en verre, police arrondie Fredoka
