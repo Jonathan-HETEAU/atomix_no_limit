@@ -1,5 +1,0 @@
-# The rules, tested without a window: haxe test.hxml
--cp src
--cp test
--main TestModel
---interp
